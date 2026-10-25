@@ -1,0 +1,13 @@
+name: fall_says_okay
+description: Granny is in view, falls, answers "I'm okay" -> no call, robot keeps watching.
+duration_s: 120
+robot_start: [0.0, 0.0, 0.0]
+person: {position: [2.0, 0.3]}
+events:
+  - {t: 15, do: fall}
+checkin_answer: OK
+checkin_delay_s: 8
+expect:
+  alert: false
+  checkin: true
+  final_mode: WATCH

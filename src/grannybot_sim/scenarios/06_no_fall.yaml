@@ -1,0 +1,11 @@
+name: no_fall_walks_around
+description: Granny walks between rooms and never falls -> no check-in, no call (false-alarm test).
+duration_s: 240
+robot_start: [0.0, 0.0, 0.0]
+person: {position: [1.8, 0.5]}
+events:
+  - {t: 60, do: move_to, room: kitchen}
+  - {t: 150, do: move_to, room: bedroom}
+expect:
+  alert: false
+  checkin: false

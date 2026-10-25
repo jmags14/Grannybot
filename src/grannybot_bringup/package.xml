@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>grannybot_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch files and shared parameters that start all GrannyBot nodes [everyone]</description>
+  <maintainer email="team@example.com">GrannyBot team</maintainer>
+  <license>MIT</license>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>rosidl_runtime_py</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>grannybot_vision</exec_depend>
+  <exec_depend>grannybot_brain</exec_depend>
+  <exec_depend>grannybot_navigation</exec_depend>
+  <exec_depend>grannybot_hardware</exec_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

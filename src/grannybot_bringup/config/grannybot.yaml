@@ -1,0 +1,48 @@
+# Parameters for running GrannyBot ON THE HIWONDER MENTORPI M1.
+# Topic/frame names below come from Hiwonder's MentorPi docs. VERIFY each one on your robot
+# with the commands in docs/07_mentorpi_integration.md, step 5. Edit here, not in the code.
+# (The simulator doesn't use this file; it uses the nodes' generic defaults.)
+
+grannybot_fall_detector:
+  ros__parameters:
+    # Find it: `ros2 topic list | grep -i image`, then `ros2 topic hz <name>`.
+    # Depth-camera kit (Hiwonder docs): /ascamera/camera_publisher/rgb0/image
+    # Monocular kit: check after starting the camera; often ends in image_raw.
+    image_topic: /image_raw          # TODO: set to your MentorPi camera topic
+    detector: pose                   # pose = yolo11n-pose, mediapipe = yolo11n + MediaPipe
+    weights: ""                      # "" = default; yolo11n-pose_ncnn_model on the Pi is faster
+    every_n: 2
+    imgsz: 320
+    camera_hfov_deg: 120.0           # measure your camera (docs/03 section 7)
+    publish_debug: true
+
+grannybot_brain:
+  ros__parameters:
+    no_voice: false                  # true = no mic/speaker (uses fake_checkin_answer)
+    fake_checkin_answer: NO_RESPONSE
+    dry_run_alert: false             # true = print the alert instead of emailing/calling
+    log_dir: /home/ubuntu/grannybot_logs
+
+grannybot_nav_commander:
+  ros__parameters:
+    rooms_file: ""                   # "" = grannybot_navigation/config/rooms.yaml
+    scan_topic: /scan_raw            # Hiwonder SLAM/Nav use scan_raw (verify: ros2 topic list | grep scan)
+    cmd_vel_topic: /controller/cmd_vel   # Hiwonder's motion topic (from their Motion Control lesson)
+    map_frame: map
+    base_frame: base_footprint       # Hiwonder's robot base frame (base_link sits on top of it)
+    nav_action: navigate_to_pose
+    scan_front_offset_deg: 0.0       # measure (docs/02 step 5)
+    patrol_pause_s: 10.0
+    approach_distance_m: 1.0
+
+grannybot_button:
+  ros__parameters:
+    gpio_pin: 17
+
+grannybot_health_check:
+  ros__parameters:
+    image_topic: /image_raw          # keep the same as grannybot_fall_detector.image_topic
+    scan_topic: /scan_raw
+    cmd_vel_topic: /controller/cmd_vel
+    map_frame: map
+    base_frame: base_footprint

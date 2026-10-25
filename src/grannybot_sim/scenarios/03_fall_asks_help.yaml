@@ -1,0 +1,13 @@
+name: fall_asks_help
+description: Granny is in view, falls, says "help" -> call right away.
+duration_s: 90
+robot_start: [0.0, 0.0, 0.0]
+person: {position: [2.5, -0.5]}
+events:
+  - {t: 15, do: fall}
+checkin_answer: HELP
+checkin_delay_s: 5
+expect:
+  alert: true
+  alert_within_s: 40
+  reason_contains: asked for help

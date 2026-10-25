@@ -1,0 +1,18 @@
+name: fall_no_answer
+description: >
+  Granny is in the kitchen. The robot starts in the living room, patrols, finds her,
+  she falls, she doesn't answer the check-in -> the robot calls, saying "kitchen".
+duration_s: 200
+robot_start: [0.0, 0.0, 0.0]
+person: {position: [6.2, 0.4]}
+events:
+  - {t: 70, do: fall}
+checkin_answer: NO_RESPONSE
+checkin_delay_s: 25
+expect:
+  alert: true
+  alert_room: kitchen
+  max_alerts: 1
+  alert_within_s: 60
+  reason_contains: did not respond
+  modes_seen: [PATROL, WATCH, APPROACH, CHECK_IN, ALERT]

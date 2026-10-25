@@ -1,0 +1,14 @@
+.env
+models/
+data/
+*.pt
+*_ncnn_model/
+*.onnx
+.venv/
+__pycache__/
+*.pyc
+build/
+install/
+log/
+.pytest_cache/
+.DS_Store

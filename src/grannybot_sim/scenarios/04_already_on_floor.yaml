@@ -1,0 +1,15 @@
+name: already_on_floor
+description: >
+  Granny is already on the bedroom floor when the robot starts (fell earlier, out of view).
+  Patrol must find her; the 20-second "on the floor" rule confirms it; no answer -> call.
+duration_s: 300
+robot_start: [0.0, 0.0, 0.0]
+person: {position: [0.6, 6.4]}
+events:
+  - {t: 0, do: lie}
+checkin_answer: NO_RESPONSE
+checkin_delay_s: 25
+expect:
+  alert: true
+  alert_room: bedroom
+  reason_contains: on the floor

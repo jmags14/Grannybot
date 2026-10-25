@@ -1,0 +1,12 @@
+# Named spots on the SLAM map. [CpE fills these in]
+# Get coordinates by driving the robot to each spot and running:
+#   ros2 run tf2_ros tf2_echo map base_link
+# or by clicking "2D Goal Pose" in RViz and reading the goal from the terminal.
+# Format: name: [x_meters, y_meters, yaw_radians]   (yaw = direction the robot faces)
+frame: map
+rooms:
+  living_room: [0.0, 0.0, 0.0]
+  kitchen: [3.0, 1.5, 1.57]
+  bedroom: [-2.0, 3.0, 3.14]
+  bathroom_door: [-2.5, 0.5, -1.57]
+patrol_order: [living_room, kitchen, bedroom, bathroom_door]

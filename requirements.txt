@@ -1,0 +1,13 @@
+# Laptop + robot Python dependencies (ROS 2 itself comes from Hiwonder's image)
+ultralytics          # YOLO11n-pose and YOLO11n
+mediapipe            # comparison pipeline
+opencv-python
+numpy
+vosk                 # offline speech recognition
+sounddevice
+pyttsx3              # offline text to speech (needs espeak-ng on Linux)
+twilio               # phone calls
+python-dotenv
+pyyaml
+pytest
+gpiozero ; platform_machine == "aarch64"

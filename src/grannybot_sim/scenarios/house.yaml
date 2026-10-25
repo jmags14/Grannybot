@@ -1,0 +1,8 @@
+# The simulated house (rooms are 5 m apart). Same format as grannybot_navigation/config/rooms.yaml.
+frame: map
+rooms:
+  living_room: [0.0, 0.0, 0.0]
+  kitchen: [5.0, 0.0, 0.0]
+  bedroom: [0.0, 5.0, 1.57]
+  bathroom: [5.0, 5.0, 1.57]
+patrol_order: [living_room, kitchen, bedroom, bathroom]

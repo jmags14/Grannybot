@@ -1,0 +1,11 @@
+name: emergency_button
+description: Robot is patrolling and hasn't found her; she presses the emergency button -> call.
+duration_s: 40
+robot_start: [0.0, 0.0, 0.0]
+person: {position: [5.6, 5.6]}
+button_at: [12.0]
+expect:
+  alert: true
+  alert_within_s: 2
+  checkin: false
+  reason_contains: emergency button
