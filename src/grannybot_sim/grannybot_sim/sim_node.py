@@ -70,6 +70,7 @@ class SimNode(Node):
         self.last_reason = None
         self.seen_pub = self.create_publisher(Bool, "/grannybot/vision/person_seen", 10)
         self.bearing_pub = self.create_publisher(Float32, "/grannybot/vision/person_bearing", 10)
+        self.distance_pub = self.create_publisher(Float32, "/grannybot/vision/person_distance", 10)
         self.button_pub = self.create_publisher(Empty, "/grannybot/hardware/button", 10)
         self.scan_pub = self.create_publisher(LaserScan, "/scan", 10)
         self.tf = TransformBroadcaster(self)
@@ -116,6 +117,7 @@ class SimNode(Node):
                 self.goal_done[finished[0]] = True
             cam = self.world.camera()
             front = self.world.front_distance()
+            person_distance = self.world.distance_to_person()
             x, y, yaw = self.world.rx, self.world.ry, self.world.ryaw
             t = self.world.t
         if cam["reason"] != self.last_reason:
@@ -125,6 +127,7 @@ class SimNode(Node):
         self.seen_pub.publish(Bool(data=cam["seen"]))
         if cam["seen"]:
             self.bearing_pub.publish(Float32(data=float(cam["bearing_deg"])))
+            self.distance_pub.publish(Float32(data=float(person_distance)))
         while self.buttons and self.buttons[0] <= t:
             self.buttons.pop(0)
             self.get_logger().warn("simulated EMERGENCY BUTTON press")

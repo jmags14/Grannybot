@@ -71,13 +71,17 @@ def call_caregivers(message: str, wait_per_call_s: int = 75, poll_s: float = 3.0
     attempts = []
     for _ in range(rounds):
         for to in phones:
-            call = client.calls.create(to=to, from_=from_, twiml=_twiml(message), timeout=30)
-            status, end = "queued", time.time() + wait_per_call_s
-            while time.time() < end:
-                time.sleep(poll_s)
-                status = client.calls(call.sid).fetch().status
-                if status == "completed" or status in FAILED_STATUSES:
-                    break
+            try:
+                call = client.calls.create(to=to, from_=from_, twiml=_twiml(message), timeout=30)
+                status, end = "queued", time.monotonic() + wait_per_call_s
+                while time.monotonic() < end:
+                    time.sleep(poll_s)
+                    status = client.calls(call.sid).fetch().status
+                    if status == "completed" or status in FAILED_STATUSES:
+                        break
+            except Exception as exc:
+                attempts.append({"to": to, "status": "error", "error": str(exc)})
+                continue
             attempts.append({"to": to, "status": status})
             print(f"[alert] call to {to}: {status}")
             if status in ("completed", "in-progress"):
@@ -114,6 +118,15 @@ def send_email(message: str) -> dict:
         s.login(os.environ["EMAIL_USER"], os.environ["EMAIL_APP_PASSWORD"].replace(" ", ""))
         s.send_message(msg)
     return {"sent_to": _emails()}
+
+
+def notification_delivered(result: dict) -> bool:
+    """Require call success when calling was attempted; otherwise accept email delivery."""
+    if result.get("dry_run"):
+        return True
+    if "answered" in result or "call_error" in result:
+        return bool(result.get("answered"))
+    return bool(result.get("email", {}).get("sent_to"))
 
 
 def send_alert(reason: str, place: Optional[str] = None) -> dict:

@@ -66,14 +66,15 @@ def test_approach_drives_until_close():
     n = f.make(approach_distance_m=1.0)
     n.on_command("approach", 0)
     n.on_bearing(3, 0.1)
-    n.on_front_distance(2.5)
+    n.on_front_distance(2.5, 0.1)
     n.tick(0.1)
     assert f.vel[-1][0] > 0
     n.on_bearing(40, 0.2)                   # way off-center: turn only, don't drive
     n.tick(0.2)
     assert f.vel[-1][0] == 0
     n.on_bearing(1, 0.3)
-    n.on_front_distance(0.95)
+    n.on_front_distance(0.95, 0.3)
+    n.on_person_distance(0.95, 0.3)
     n.tick(0.3)
     assert f.status[-1] == "ARRIVED"
 
@@ -83,7 +84,7 @@ def test_person_lost_during_approach():
     n = f.make()
     n.on_command("approach", 0)
     n.on_bearing(0, 0.1)
-    n.on_front_distance(3)
+    n.on_front_distance(3, 0.1)
     n.tick(0.2)
     n.tick(2.0)                             # no new bearing for > 1.5 s
     assert f.status[-1] == "LOST" and f.vel[-1] == (0.0, 0.0)
@@ -94,3 +95,34 @@ def test_unknown_room_fails():
     n = f.make()
     n.on_command("goto:garage", 0)
     assert f.status[-1] == "FAILED" and f.goals == []
+
+
+def test_approach_without_scan_stops():
+    f = Fake()
+    n = f.make()
+    n.on_command("approach", 0)
+    n.on_bearing(0, .1)
+    n.tick(.1)
+    assert f.status[-1] == "FAILED" and f.vel[-1] == (0, 0)
+
+
+def test_stale_or_invalid_scan_cannot_drive():
+    for distance in (3, float("nan"), float("inf"), -1):
+        f = Fake()
+        n = f.make()
+        n.on_command("approach", 0)
+        n.on_front_distance(distance, 0)
+        n.on_bearing(0, 1.1)
+        n.tick(1.1)
+        assert f.status[-1] == "FAILED" and f.vel[-1] == (0, 0)
+
+
+def test_obstacle_is_not_reported_as_person_arrival():
+    f = Fake()
+    n = f.make()
+    n.on_command("approach", 0)
+    n.on_front_distance(.8, .1)
+    n.on_bearing(0, .1)
+    n.on_person_distance(3, .1)
+    n.tick(.1)
+    assert f.status[-1] == "FAILED" and f.vel[-1] == (0, 0)

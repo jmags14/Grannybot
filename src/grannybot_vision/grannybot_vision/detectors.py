@@ -44,7 +44,8 @@ def _largest(boxes: np.ndarray) -> int:
 def _empty(bbox_px, W, H):
     x1, y1, x2, y2 = (float(v) for v in bbox_px)
     return {"bbox": (x1 / W, y1 / H, x2 / W, y2 / H), "bbox_px": (x1, y1, x2, y2),
-            "torso_angle": None, "hip_y": None, "points": None, "skeleton": None}
+            "torso_angle": None, "hip_y": None, "points": None, "skeleton": None,
+            "image_aspect": W / H}
 
 
 class YoloPoseDetector:

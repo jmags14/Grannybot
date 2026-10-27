@@ -29,7 +29,7 @@ from rclpy.node import Node
 from std_msgs.msg import Bool, Empty, String
 
 from .alert import send_alert
-from .brain import NO_RESPONSE, Brain
+from .brain import NO_RESPONSE, Brain, BrainConfig
 from .paths import load_env
 
 
@@ -41,6 +41,8 @@ class BrainNode(Node):
         self.declare_parameter("fake_checkin_delay_s", 5.0)
         self.declare_parameter("dry_run_alert", False)
         self.declare_parameter("log_dir", os.path.expanduser("~/grannybot_logs"))
+        for name, default in vars(BrainConfig()).items():
+            self.declare_parameter(name, default)
         load_env()
         self.lock = threading.Lock()
         self.no_voice = bool(self.get_parameter("no_voice").value)
@@ -48,9 +50,6 @@ class BrainNode(Node):
         self.fake_delay = float(self.get_parameter("fake_checkin_delay_s").value)
         self.dry_run = bool(self.get_parameter("dry_run_alert").value)
         self.listener = None
-        if not self.no_voice:
-            from .checkin import Listener
-            self.listener = Listener()
 
         log_dir = self.get_parameter("log_dir").value
         os.makedirs(log_dir, exist_ok=True)
@@ -59,7 +58,9 @@ class BrainNode(Node):
         self.mode_pub = self.create_publisher(String, "/grannybot/brain/mode", 10)
         self.nav_pub = self.create_publisher(String, "/grannybot/nav/command", 10)
         self.brain = Brain(nav=self.send_nav, start_checkin=self.start_checkin,
-                           alert=self.start_alert, say=self.say, on_event=self.on_event)
+                           alert=self.start_alert, say=self.say, on_event=self.on_event,
+                           cfg=BrainConfig(**{k: self.get_parameter(k).value
+                                              for k in vars(BrainConfig())}))
 
         self.person_seen = False
         self.fall_reason = ""
@@ -87,26 +88,45 @@ class BrainNode(Node):
         threading.Thread(target=speak, args=(text,), daemon=True).start()
 
     def start_checkin(self):
+        incident = self.brain._mode_since
         def work():
-            if self.no_voice:
-                self.get_logger().info(f"[fake check-in] waiting {self.fake_delay:.0f}s, "
-                                       f"answer will be {self.fake_answer}")
-                time.sleep(self.fake_delay)
-                result = self.fake_answer
-            else:
-                from .checkin import ask_are_you_okay
-                result = ask_are_you_okay(self.listener)
+            try:
+                result = self.run_checkin()
+            except Exception as exc:
+                self.get_logger().error(f"Check-in failed: {exc}")
+                result = NO_RESPONSE
             with self.lock:
-                self.brain.on_checkin_result(result, self.now())
+                if self.brain._mode_since == incident:
+                    self.brain.on_checkin_result(result, self.now())
         threading.Thread(target=work, daemon=True).start()
 
+    def run_checkin(self):
+        if self.no_voice:
+            self.get_logger().info(f"[fake check-in] waiting {self.fake_delay:.0f}s, "
+                                   f"answer will be {self.fake_answer}")
+            time.sleep(self.fake_delay)
+            result = self.fake_answer
+        else:
+            from .checkin import Listener, ask_are_you_okay
+            if self.listener is None:
+                self.listener = Listener()
+            result = ask_are_you_okay(self.listener)
+        return result
+
     def start_alert(self, reason: str, room):
+        attempt = self.brain.alert_attempt_id
         def work():
-            if self.dry_run:
-                self.get_logger().warn(f"[DRY RUN] would call caregiver: {reason} (room={room})")
-                result = {"dry_run": True, "reason": reason, "room": room}
-            else:
-                result = send_alert(reason, room)
+            try:
+                if self.dry_run:
+                    self.get_logger().warn(f"[DRY RUN] would call caregiver: {reason} (room={room})")
+                    result = {"dry_run": True, "reason": reason, "room": room}
+                else:
+                    result = send_alert(reason, room)
+            except Exception as exc:
+                result = {"error": str(exc)}
+            from .alert import notification_delivered
+            with self.lock:
+                self.brain.on_alert_result(notification_delivered(result), self.now(), attempt)
             self.write_log("ALERT_RESULT", str(result))
         threading.Thread(target=work, daemon=True).start()
 

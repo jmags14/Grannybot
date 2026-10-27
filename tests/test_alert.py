@@ -107,3 +107,20 @@ def test_call_gives_up_after_rounds(monkeypatch):
     monkeypatch.setenv("CALL_ROUNDS", "3")
     r = alert.send_alert("possible fall")
     assert calls == ["+1111"] * 3 and not r["answered"]
+
+
+def test_delivery_result_requires_call_success_if_attempted():
+    assert not alert.notification_delivered({"answered": False, "email": {"sent_to": ["x"]}})
+    assert not alert.notification_delivered({"call_error": "offline"})
+    assert alert.notification_delivered({"answered": True})
+    assert alert.notification_delivered({"email": {"sent_to": ["x"]}})
+    assert not alert.notification_delivered({"error": "not configured"})
+
+
+def test_call_exception_does_not_skip_other_caregivers(monkeypatch):
+    calls = fake_twilio(monkeypatch, {"+2222": "completed"})
+    monkeypatch.setenv("CAREGIVER_PHONES", "+1111,+2222")
+    result = alert.send_alert("fall")
+    assert calls == ["+1111", "+2222"]
+    assert result["answered"] and result["by"] == "+2222"
+    assert result["attempts"][0]["status"] == "error"

@@ -98,3 +98,68 @@ def test_no_repeat_call_within_gap():
         b.on_nav_status("ARRIVED", t0 + 1)
         b.on_checkin_result(NO_RESPONSE, t0 + 20)
     assert len(f.alerts) == 1
+
+
+def test_checkin_timeout_alerts_without_worker_result():
+    f, b = started()
+    b.on_vision("UPRIGHT", True, 1)
+    b.on_vision("FALLEN", True, 2)
+    b.on_nav_status("ARRIVED", 3)
+    b.tick(94)
+    assert b.mode == ALERT and len(f.alerts) == 1
+    b.on_checkin_result(OK, 95)  # late audio cannot cancel an alert
+    assert b.mode == ALERT
+
+
+def test_sustained_recovery_rearms_new_fall_during_snooze():
+    f, b = started()
+    b.on_vision("UPRIGHT", True, 1)
+    b.on_vision("FALLEN", True, 2)
+    b.on_nav_status("ARRIVED", 3)
+    b.on_checkin_result(OK, 4)
+    b.on_vision("UPRIGHT", True, 5)
+    b.on_vision("UPRIGHT", True, 9)
+    b.on_vision("FALLEN", True, 10)
+    assert b.mode == APPROACH
+
+
+def test_failed_delivery_retries_and_success_stops_retries():
+    f, b = started()
+    b.on_button(1)
+    attempt = b.alert_attempt_id
+    b.on_alert_result(False, 2, attempt)
+    b.tick(18)
+    assert len(f.alerts) == 2
+    b.on_alert_result(True, 19, attempt)  # stale result from first attempt
+    assert b._alert_pending
+    b.on_alert_result(True, 20, b.alert_attempt_id)
+    b.tick(40)
+    assert len(f.alerts) == 2 and not b._alert_pending
+
+
+def test_alert_retries_are_bounded():
+    f, b = started()
+    b.on_button(1)
+    for t in (2, 20, 40):
+        b.on_alert_result(False, t)
+        b.tick(t + 16)
+    assert len(f.alerts) == b.cfg.alert_max_attempts
+    assert not b._alert_pending and b._alert_retry_at is None
+
+
+def test_missing_alert_result_has_bounded_retry():
+    f, b = started()
+    b.on_button(1)
+    b.tick(902)
+    b.tick(918)
+    assert len(f.alerts) == 2
+
+
+def test_watch_faces_upright_person_periodically():
+    f, b = started()
+    b.on_vision("UPRIGHT", True, 1)
+    b.on_vision("UPRIGHT", True, 2)
+    assert f.nav[-1] == "face"
+    count = len(f.nav)
+    b.on_vision("UPRIGHT", True, 3)
+    assert len(f.nav) == count

@@ -33,7 +33,6 @@ lock = threading.Lock()
 listener = None
 if not a.no_voice:
     from grannybot_brain.checkin import Listener, ask_are_you_okay, speak
-    listener = Listener()
 else:
     def speak(text):
         print(f"[say] {text}")
@@ -46,18 +45,37 @@ def fake_nav(cmd):
 
 
 def start_checkin():
+    incident = brain._mode_since
     def work():
-        result = ask_are_you_okay(listener) if listener else NO_RESPONSE
-        brain_call("on_checkin_result", result)
+        global listener
+        try:
+            if not a.no_voice and listener is None:
+                listener = Listener()
+            result = ask_are_you_okay(listener) if listener else NO_RESPONSE
+        except Exception as exc:
+            print(f"[check-in failed] {exc}")
+            result = NO_RESPONSE
+        with lock:
+            if brain._mode_since == incident:
+                brain.on_checkin_result(result, time.monotonic())
     threading.Thread(target=work, daemon=True).start()
 
 
 def alert(reason, room):
-    if a.no_call:
-        print(f"[ALERT would call] {reason} (room={room})")
-        return
-    from grannybot_brain.alert import send_alert
-    threading.Thread(target=send_alert, args=(reason, room), daemon=True).start()
+    attempt = brain.alert_attempt_id
+    def work():
+        from grannybot_brain.alert import notification_delivered, send_alert
+        try:
+            if a.no_call:
+                print(f"[ALERT would call] {reason} (room={room})")
+                result = {"dry_run": True}
+            else:
+                result = send_alert(reason, room)
+        except Exception as exc:
+            result = {"error": str(exc)}
+        with lock:
+            brain.on_alert_result(notification_delivered(result), time.monotonic(), attempt)
+    threading.Thread(target=work, daemon=True).start()
 
 
 brain = Brain(nav=fake_nav, start_checkin=start_checkin, alert=alert, say=speak,
