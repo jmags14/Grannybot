@@ -48,6 +48,7 @@ class Observation:
     bbox: Optional[Tuple[float, float, float, float]] = None  # x1, y1, x2, y2 (normalized)
     torso_angle: Optional[float] = None         # degrees from vertical (from pose keypoints)
     hip_y: Optional[float] = None               # normalized hip height (from pose keypoints)
+    image_aspect: float = 1.0                    # frame width / height
 
 
 # States, in order of seriousness
@@ -69,13 +70,14 @@ class FallLogic:
         self._lying_since: Optional[float] = None
         self._last_drop_t: Optional[float] = None
         self._last_seen_t: Optional[float] = None
+        self._last_observation_t: Optional[float] = None
 
     # ---- helpers -------------------------------------------------------
     def _is_lying(self, obs: Observation) -> bool:
         c = self.cfg
         x1, y1, x2, y2 = obs.bbox
         w, h = max(x2 - x1, 1e-6), max(y2 - y1, 1e-6)
-        aspect = w / h
+        aspect = w / h * obs.image_aspect
         if obs.torso_angle is not None:
             if obs.torso_angle >= c.torso_lying_deg and aspect >= c.aspect_min_with_torso:
                 return True
@@ -96,11 +98,16 @@ class FallLogic:
     def update(self, obs: Observation) -> str:
         c = self.cfg
         t = obs.t
+        if self._last_observation_t is not None and (
+                t < self._last_observation_t or t - self._last_observation_t > c.lost_grace_s):
+            self.reset()
+        self._last_observation_t = t
 
         if not obs.person or obs.bbox is None:
             if self._last_seen_t is None or t - self._last_seen_t > c.lost_grace_s:
                 self._lying_since = None
                 self._hips.clear()
+                self._last_drop_t = None
                 self.state, self.reason = NO_PERSON, ""
             return self.state
 

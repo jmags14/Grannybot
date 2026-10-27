@@ -41,6 +41,7 @@ class NavConfig:
     turn_gain: float = 1.5
     face_tolerance_deg: float = 6.0       # "centered"
     drive_tolerance_deg: float = 15.0     # only drive forward when roughly centered
+    scan_stale_s: float = 1.0
     bearing_stale_s: float = 1.5          # no bearing for this long => person LOST
 
 
@@ -66,7 +67,10 @@ class NavLogic:
         self.mode_t = 0.0
         self.bearing: Optional[float] = None
         self.bearing_t = -1e9
-        self.front_m = float("inf")
+        self.front_m = float("nan")
+        self.front_t = -1e9
+        self.person_distance_m = None
+        self.person_distance_t = -1e9
         self.current_room: Optional[str] = None
 
     # ---- small helpers ------------------------------------------------
@@ -120,8 +124,12 @@ class NavLogic:
     def on_bearing(self, deg: float, now: float) -> None:
         self.bearing, self.bearing_t = float(deg), now
 
-    def on_front_distance(self, meters: float) -> None:
-        self.front_m = float(meters)
+    def on_front_distance(self, meters: float, now: float) -> None:
+        self.front_m, self.front_t = float(meters), now
+
+    def on_person_distance(self, meters: float, now: float) -> None:
+        """Optional independently associated target range; LiDAR obstacles are not target ranges."""
+        self.person_distance_m, self.person_distance_t = float(meters), now
 
     def on_pose(self, x: float, y: float) -> None:
         """Robot position on the map. Reports the nearest room whenever it changes, so the
@@ -176,8 +184,17 @@ class NavLogic:
                 self._cmd_vel(0.0, self._turn_rate(b))
             return
         # APPROACH
-        if self.front_m <= c.approach_distance_m and abs(b) <= c.drive_tolerance_deg:
+        if now - self.front_t > c.scan_stale_s or not math.isfinite(self.front_m) or self.front_m <= 0:
+            self._finish("FAILED")
+        elif (self.person_distance_m is not None
+              and now - self.person_distance_t <= c.bearing_stale_s
+              and math.isfinite(self.person_distance_m)
+              and 0 < self.person_distance_m <= c.approach_distance_m
+              and abs(b) <= c.drive_tolerance_deg):
             self._finish("ARRIVED")
+        elif self.front_m <= c.approach_distance_m:
+            # Obstruction or unverified target: stop and let the brain check in.
+            self._finish("FAILED")
         elif in_mode > c.approach_timeout_s:
             self._finish("FAILED")
         else:

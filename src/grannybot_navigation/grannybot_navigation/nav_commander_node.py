@@ -87,12 +87,14 @@ class NavCommander(Node):
         self.lock = threading.Lock()
         self.goal_handles = {}
         self.next_goal_id = 0
+        self.pending_goals = set()
         self.failed_goals = []      # goals that couldn't be sent; reported on the next tick
 
         self.logic = NavLogic(rooms, order, self.send_goal, self.cancel_goal, self.cmd_vel,
                               self.publish_status, self.publish_room, cfg)
         self.create_subscription(String, "/grannybot/nav/command", self.on_command, 10)
         self.create_subscription(Float32, "/grannybot/vision/person_bearing", self.on_bearing, 10)
+        self.create_subscription(Float32, "/grannybot/vision/person_distance", self.on_person_distance, 10)
         self.create_subscription(LaserScan, g("scan_topic"), self.on_scan, qos_profile_sensor_data)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -135,12 +137,25 @@ class NavCommander(Node):
         ps.pose.orientation.z, ps.pose.orientation.w = math.sin(yaw / 2), math.cos(yaw / 2)
         goal.pose = ps
         self.get_logger().info(f"goal {gid}: {room} ({x:.2f}, {y:.2f})")
+        self.pending_goals.add(gid)
         fut = self.nav.send_goal_async(goal)
         fut.add_done_callback(lambda f, gid=gid: self.on_goal_accepted(gid, f))
         return gid
 
     def on_goal_accepted(self, gid, future):
-        handle = future.result()
+        try:
+            handle = future.result()
+        except Exception as exc:
+            self.pending_goals.discard(gid)
+            self.get_logger().error(f"Navigation request failed: {exc}")
+            with self.lock:
+                self.logic.on_goal_result(gid, False, self.now())
+            return
+        active = gid in self.pending_goals
+        self.pending_goals.discard(gid)
+        if handle.accepted and not active:
+            handle.cancel_goal_async()
+            return
         if not handle.accepted:
             with self.lock:
                 self.logic.on_goal_result(gid, False, self.now())
@@ -157,6 +172,7 @@ class NavCommander(Node):
             self.logic.on_goal_result(gid, status == GoalStatus.STATUS_SUCCEEDED, self.now())
 
     def cancel_goal(self):
+        self.pending_goals.clear()
         for gid, h in list(self.goal_handles.items()):
             h.cancel_goal_async()
             self.goal_handles.pop(gid, None)
@@ -171,9 +187,13 @@ class NavCommander(Node):
         with self.lock:
             self.logic.on_bearing(msg.data, self.now())
 
+    def on_person_distance(self, msg):
+        with self.lock:
+            self.logic.on_person_distance(msg.data, self.now())
+
     def on_scan(self, msg):
         with self.lock:
-            self.logic.on_front_distance(front_distance(msg, self.offset))
+            self.logic.on_front_distance(front_distance(msg, self.offset), self.now())
 
     def repeat_room(self):
         if self.logic.current_room:

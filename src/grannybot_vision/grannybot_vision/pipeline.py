@@ -20,7 +20,8 @@ def observation_from(det: Optional[dict], t: float) -> Observation:
     return Observation(t=t, person=det is not None,
                        bbox=det["bbox"] if det else None,
                        torso_angle=det["torso_angle"] if det else None,
-                       hip_y=det["hip_y"] if det else None)
+                       hip_y=det["hip_y"] if det else None,
+                       image_aspect=det.get("image_aspect", 1.0) if det else 1.0)
 
 
 def draw(frame, det, state, reason, fps=None, label=""):
@@ -90,7 +91,8 @@ def run(source, detector, cfg: Optional[FallConfig] = None, every_n: int = 1, sh
                     aspect = None
                     if det:
                         b = det["bbox"]
-                        aspect = (b[2] - b[0]) / max(b[3] - b[1], 1e-6)
+                        aspect = ((b[2] - b[0]) / max(b[3] - b[1], 1e-6)
+                                  * det.get("image_aspect", 1.0))
                     writer.writerow([f"{t:.2f}", int(det is not None), det and det["torso_angle"],
                                      aspect, det and det["hip_y"], state, logic.reason])
                 if state != last_state:

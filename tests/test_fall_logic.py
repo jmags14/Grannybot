@@ -54,3 +54,18 @@ def test_sideways_partial_angle_wide_box_counts_as_lying():
     side = dict(bbox=(0.2, 0.6, 0.8, 0.95), torso_angle=47.0, hip_y=0.8)
     _, s = play([side] * 210)
     assert s[-1] == FALLEN
+
+
+def test_camera_gap_does_not_count_as_sustained_lying():
+    logic = FallLogic()
+    logic.update(Observation(0, True, **LIE))
+    assert logic.update(Observation(60, True, **LIE)) == POSSIBLE_FALL
+    assert logic.update(Observation(61, True, **LIE)) == POSSIBLE_FALL
+
+
+def test_aspect_ratio_uses_frame_dimensions():
+    # Identical pixel shape encoded in square, landscape and portrait frames.
+    for aspect in (1.0, 16 / 9, 9 / 16):
+        logic = FallLogic()
+        obs = Observation(0, True, bbox=(0, 0, .6 / aspect, .4), image_aspect=aspect)
+        assert logic.update(obs) == POSSIBLE_FALL

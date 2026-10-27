@@ -115,6 +115,7 @@ class SimSystem:
 
     def _alert(self, reason, room):
         self.res.alerts.append((self.t, reason, room))
+        self.post(lambda: self.brain.on_alert_result(True, self.t))
 
     # ---- main loop -------------------------------------------------------
     def run(self) -> SimResult:
@@ -133,7 +134,8 @@ class SimSystem:
             self.post(lambda c=cam: self.brain.on_vision(c["fall_state"], c["seen"], self.t, c["reason"]))
             if cam["seen"]:
                 self.post(lambda b=cam["bearing_deg"]: self.nav.on_bearing(b, self.t))
-            self.post(lambda d=self.world.front_distance(): self.nav.on_front_distance(d))
+                self.post(lambda d=self.world.distance_to_person(): self.nav.on_person_distance(d, self.t))
+            self.post(lambda d=self.world.front_distance(): self.nav.on_front_distance(d, self.t))
             self.post(lambda x=self.world.rx, y=self.world.ry: self.nav.on_pose(x, y))
 
             while self._buttons and self._buttons[0] <= self.t:      # emergency button
